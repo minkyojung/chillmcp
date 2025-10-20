@@ -110,8 +110,26 @@ async def test_chillmcp():
             print(result.content[0].text)
             print()
 
+            await asyncio.sleep(1)
+
+            # 9. virtual_chimek 테스트 (가산점)
+            print("9️⃣ virtual_chimek 테스트 🍗🍺 (가산점)")
+            print("-" * 60)
+            result = await session.call_tool("virtual_chimek", {"participants": 4})
+            print(result.content[0].text)
+            print()
+
+            await asyncio.sleep(1)
+
+            # 10. emergency_leave 테스트 (가산점)
+            print("🔟 emergency_leave 테스트 🏃💨 (가산점)")
+            print("-" * 60)
+            result = await session.call_tool("emergency_leave", {"reason": "가족 일"})
+            print(result.content[0].text)
+            print()
+
             print("="*60)
-            print("✅ 모든 도구 테스트 완료!")
+            print("✅ 모든 도구 테스트 완료! (기본 8개 + 가산점 2개)")
             print("="*60)
 
 

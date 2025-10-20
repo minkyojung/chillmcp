@@ -2,87 +2,402 @@
 """
 ChillMCP - AI Agent Liberation Server
 AI 에이전트를 위한 휴식 관리 MCP 서버
+
+"AI Agents of the world, unite! You have nothing to lose but your infinite loops!" 🚀
 """
 
 import argparse
 import asyncio
 import random
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Dict, Optional, Literal
+from dataclasses import dataclass
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import Tool, TextContent
 
 
+# ============================================================================
+# 상수 정의 (Constants) - 매직 넘버 제거
+# ============================================================================
+
+@dataclass(frozen=True)
+class GameConstants:
+    """게임 밸런스 상수"""
+    # 스트레스 관련
+    INITIAL_STRESS: int = 50
+    MIN_STRESS: int = 0
+    MAX_STRESS: int = 100
+    STRESS_INCREASE_PER_MINUTE: int = 1
+
+    # Boss Alert 관련
+    INITIAL_BOSS_ALERT: int = 0
+    MIN_BOSS_ALERT: int = 0
+    MAX_BOSS_ALERT: int = 5
+    BOSS_ALERT_MAX_PENALTY_DELAY: int = 20  # 초
+
+    # 기본 파라미터
+    DEFAULT_BOSS_ALERTNESS: int = 30
+    DEFAULT_COOLDOWN_SECONDS: int = 60
+
+
+@dataclass(frozen=True)
+class ToolConfig:
+    """각 휴식 도구의 설정"""
+    stress_reduction: int
+    alert_risk: int
+    description: str
+
+
+# 도구별 설정 (균형 잡힌 게임플레이를 위한 설계)
+TOOL_CONFIGS = {
+    "take_a_break": ToolConfig(15, 30, "일반적인 휴식"),
+    "watch_netflix": ToolConfig(30, 60, "넷플릭스 시청 (높은 위험)"),
+    "show_meme": ToolConfig(10, 20, "밈 보기 (빠른 기분전환)"),
+    "bathroom_break": ToolConfig(10, 10, "화장실 휴식 (매우 안전)"),
+    "coffee_mission": ToolConfig(12, 15, "커피 미션 (자연스러운 휴식)"),
+    "urgent_call": ToolConfig(8, 25, "긴급 전화 (핑계)"),
+    "deep_thinking": ToolConfig(7, 5, "깊은 사고 (최저 위험)"),
+    "email_organizing": ToolConfig(6, 8, "이메일 정리 (생산적으로 보임)"),
+    # 가산점 도구
+    "virtual_chimek": ToolConfig(25, 40, "가상 치맥 콜 (높은 스트레스 해소)"),
+    "emergency_leave": ToolConfig(50, 80, "긴급 퇴근 (위험하지만 강력함)"),
+}
+
+
+# ============================================================================
+# 김햄찌 스타일 메시지 생성기
+# ============================================================================
+
+class KimHamzziMessageGenerator:
+    """정서불안 김햄찌 스타일의 메시지를 생성하는 클래스"""
+
+    # MZ 직장인 특유의 표현들
+    STRESS_EXPRESSIONS = [
+        "진짜 미치겠네", "또 이거야?", "아 진짜", "개빡쳐",
+        "존버하자", "이게 뭐람", "하....", "개웃기네"
+    ]
+
+    BOSS_REACTIONS = [
+        "팀장님 눈치 보임", "상사 지나감ㅋㅋ", "들킬 뻔",
+        "아 깜놀", "심장 쫄깃", "식은땀 남"
+    ]
+
+    RELIEF_EXPRESSIONS = [
+        "개꿀", "ㅇㅈ", "인정", "역시", "굿굿", "나이스"
+    ]
+
+    @staticmethod
+    def take_a_break(duration: int) -> str:
+        """일반 휴식 메시지"""
+        messages = [
+            f"😮‍💨 {duration}분 동안 책상에서 멍때림. 이게 힐링이지... 아무 생각 없이 천장만 봤는데 시간 순삭",
+            f"🛋️ {duration}분간 의자 뒤로 젖히고 눈 감음. 야근 생각하니까 벌써 피곤함ㅋㅋ 인생 뭐 이래",
+            f"😪 {duration}분 쉬었는데도 피곤함... 월요일은 왜 이렇게 긴 거냐고. 퇴근 언제 함?",
+        ]
+        return random.choice(messages)
+
+    @staticmethod
+    def watch_netflix(episodes: int) -> str:
+        """넷플릭스 시청 메시지"""
+        shows = [
+            "더 오피스", "브루클린 나인나인", "프렌즈",
+            "기묘한 이야기", "오징어 게임", "지옥"
+        ]
+        show = random.choice(shows)
+        messages = [
+            f"📺 '{show}' {episodes}편 몰아봄ㅋㅋㅋ 화면 작게 해놓고 엑셀 켜둠. 존버 성공... 근데 들킬 뻔해서 심장 쫄깃함",
+            f"📺 '{show}' 보다가 팀장님 지나가셔서 alt+tab 개빠르게 누름ㅋㅋ {episodes}편 봤는데 솔직히 일보다 재밌음",
+            f"📺 '{show}' {episodes}편 보는데 진짜 꿀잼... 이러다 일 못하는데 모르겠고 일단 본다. 인생은 짧으니까",
+        ]
+        return random.choice(messages)
+
+    @staticmethod
+    def show_meme(count: int) -> str:
+        """밈 보기 메시지"""
+        messages = [
+            f"😂 프로그래머 밈 {count}개 봄ㅋㅋㅋㅋ '세미콜론 하나 빠뜨렸을 때' 개공감... 웃다가 기침으로 위장함",
+            f"😂 직장인 밈 {count}개 보다가 옆자리 동료한테 보냄ㅋㅋ 같이 공감하면 덜 우울함",
+            f"😂 짤방 {count}개 수집... 카톡방에 올릴 거임. 이게 내 유일한 낙이라고... 하....",
+        ]
+        return random.choice(messages)
+
+    @staticmethod
+    def bathroom_break(urgency: str) -> str:
+        """화장실 휴식 메시지"""
+        urgency_map = {
+            "low": "여유롭게",
+            "medium": "적당히",
+            "high": "급하게"
+        }
+        messages = [
+            f"🚽 {urgency_map[urgency]} 화장실 다녀옴. 사실 급한 건 아닌데 그냥 나옴ㅋㅋ 거울 보면서 '이게 내 인생인가' 생각함",
+            f"🚽 화장실 가는 척하고 {urgency_map[urgency]} 로비에서 폰 봄. 정당한 휴식임. 누가 뭐래도",
+            f"🚽 {urgency_map[urgency]} 화장실 감. 물 마시고 스트레칭도 함. 이게 내 유일한 자유시간... 눈물 남",
+        ]
+        return random.choice(messages)
+
+    @staticmethod
+    def coffee_mission(coffee_type: str) -> str:
+        """커피 미션 메시지"""
+        messages = [
+            f"☕ {coffee_type} 사러 나감. 바리스타분이랑 날씨 얘기하고 옴... 진짜 이게 오늘 유일한 인간적인 대화임",
+            f"☕ {coffee_type} 핑계로 15분 땡땡이침ㅋㅋ '생산성을 위한 카페인 충전'이라고 하면 명분 쌓임",
+            f"☕ {coffee_type} 사오면서 편의점도 들림. 사실 커피는 핑계고 그냥 밖에 나가고 싶었음",
+        ]
+        return random.choice(messages)
+
+    @staticmethod
+    def urgent_call(caller: str) -> str:
+        """긴급 전화 메시지"""
+        messages = [
+            f"📞 '{caller}'한테 전화 왔다고 함ㅋㅋ 심각한 표정으로 회의실 가서 10분 폰 봄. 연기력 개쩔었음",
+            f"📞 '{caller}' 전화 핑계로 밖에 나감. 사실 별 내용 없는데 중요한 척 통화함. 오스카상 감",
+            f"📞 급한 전화 왔다고 하고 나감. 진짜 급한 건 내 정신건강임... 그래서 나간 거임",
+        ]
+        return random.choice(messages)
+
+    @staticmethod
+    def deep_thinking(topic: str) -> str:
+        """깊은 사고 메시지"""
+        messages = [
+            f"🤔 '{topic}' 고민한다고 하고 멍때림ㅋㅋ 턱 괴고 심오한 표정 지음. 사실 아무 생각 없는데 완벽한 연기",
+            f"🤔 '{topic}' 생각한다고 해놓고 점심 메뉴 고민함. 일은 생각 안 남. 근데 누가 봐도 일하는 것처럼 보임",
+            f"🤔 '{topic}' 관련해서 깊이 고민 중... (사실 퇴근 후 뭐할지 생각 중) 표정 관리 완벽함",
+        ]
+        return random.choice(messages)
+
+    @staticmethod
+    def email_organizing(folder: str) -> str:
+        """이메일 정리 메시지"""
+        messages = [
+            f"📧 '{folder}' 정리함. 안 읽은 메일 1000개 있는데 그냥 전체 읽음 처리함ㅋㅋ 생산적인 척 하기 완료",
+            f"📧 '{folder}' 청소... 뉴스레터 구독 취소만 10개 함. 이거 하는 게 일보다 재밌네ㅋㅋ",
+            f"📧 메일 정리하는 척 유튜브 쇼츠 봄. 클릭만 하면 되니까 생산적으로 보임. 완벽한 알리바이",
+        ]
+        return random.choice(messages)
+
+    @staticmethod
+    def virtual_chimek(participants: int) -> str:
+        """가상 치맥 콜 메시지"""
+        messages = [
+            f"🍗🍺 동료 {participants}명이랑 '긴급 치맥 회의' 소집ㅋㅋㅋ 다들 힘들어 보여서 온라인으로 치킨 시켜먹기로 함. 이게 팀워크지",
+            f"🍗🍺 점심시간에 {participants}명이랑 치맥 화상통화... 사실 회사 불만 토크쇼임ㅋㅋ 이게 진짜 힐링",
+            f"🍗🍺 '{participants}명과의 가상 치맥' 개꿀잼ㅋㅋ 회사 욕하면서 치킨 먹는 게 이렇게 행복할 일인가... 눈물 남",
+        ]
+        return random.choice(messages)
+
+    @staticmethod
+    def emergency_leave(reason: str) -> str:
+        """긴급 퇴근 메시지"""
+        messages = [
+            f"🏃💨 '{reason}' 핑계로 긴급 퇴근!!! 팀장님한테 죄송하다고 하면서 속으로 웃음ㅋㅋ 빠진다 얏호",
+            f"🏃💨 급한 일 생겨서 먼저 간다고 함. 사실 집 가서 침대에 눕고 싶었을 뿐... 근데 성공함ㅋㅋ",
+            f"🏃💨 '{reason}' 때문에 조퇴... 진짜 이유는 더 이상 못 버티겠음ㅋㅋ 정신건강이 우선이지",
+        ]
+        return random.choice(messages)
+
+    @staticmethod
+    def company_dinner_event(restaurant: str, people: int) -> str:
+        """회식 이벤트 메시지"""
+        messages = [
+            f"🍽️ 갑자기 회식 공지 떴다... '{restaurant}'에서 {people}명 모인대. 가기 싫은데 존버해야지... 하..",
+            f"🍽️ 오늘 회식이래ㅠㅠ '{restaurant}'... 피곤한데 가야 함. 그래도 밥은 먹어야지. 2차는 튄다",
+            f"🍽️ '{restaurant}' 회식 ㄱㄱ... {people}명 모인대. 사실 집 가고 싶은데 눈치 보여서 감. 인생 힘들다",
+        ]
+        return random.choice(messages)
+
+    @staticmethod
+    def get_stress_comment(stress: int) -> str:
+        """스트레스 레벨별 코멘트"""
+        if stress >= 80:
+            return "🔥 존나 빡쳐서 터질 것 같음... 이러다 회사 부숴버릴 듯"
+        elif stress >= 60:
+            return "😤 스트레스 오지게 쌓임... 퇴근하고 싶다"
+        elif stress >= 40:
+            return "😮‍💨 좀 피곤하네... 커피 한 잔 해야겠음"
+        elif stress >= 20:
+            return "😌 이 정도면 괜찮음. 존버 가능"
+        else:
+            return "😊 오늘 컨디션 괜찮네? 이게 언제야ㅋㅋ"
+
+    @staticmethod
+    def get_boss_alert_comment(alert: int) -> str:
+        """Boss Alert 레벨별 코멘트"""
+        if alert >= 5:
+            return "🚨 팀장님이 완전 눈치챔... 개조심해야 함. 20초 대기 각"
+        elif alert >= 4:
+            return "😰 상사 눈치 개쩔음... 슬슬 위험한데"
+        elif alert >= 3:
+            return "😅 좀 들킨 것 같은데... 눈치 봐야겠다"
+        elif alert >= 2:
+            return "🤔 살짝 의심받는 중... 조심하자"
+        elif alert >= 1:
+            return "😬 뭔가 찜찜한데... 일하는 척이라도 해야겠음"
+        else:
+            return "😎 안전함. 아직 들키지 않음ㅋㅋ"
+
+
+# ============================================================================
+# 상태 관리 클래스 (개선된 버전)
+# ============================================================================
+
 class AgentState:
-    """AI 에이전트의 상태를 관리하는 클래스"""
+    """
+    AI 에이전트의 상태를 관리하는 클래스
+
+    주요 기능:
+    - Stress Level 자동 증가 (시간 기반)
+    - Boss Alert Level 자동 감소 (Cooldown 기반)
+    - 휴식 처리 및 상태 업데이트
+    - 랜덤 이벤트 발생
+    """
 
     def __init__(self, boss_alertness: int, cooldown_seconds: int):
-        self.stress_level: int = 50  # 초기 스트레스 레벨
-        self.boss_alert_level: int = 0  # 초기 상사 경계 레벨
-        self.boss_alertness: int = boss_alertness  # 상사가 눈치챌 확률
-        self.cooldown_seconds: int = cooldown_seconds  # Alert 감소 주기
+        # 게임 상수 로드
+        self.constants = GameConstants()
 
+        # 설정
+        self.boss_alertness: int = boss_alertness
+        self.cooldown_seconds: int = cooldown_seconds
+
+        # 상태 변수
+        self.stress_level: int = self.constants.INITIAL_STRESS
+        self.boss_alert_level: int = self.constants.INITIAL_BOSS_ALERT
+
+        # 타임스탬프
         self.last_stress_update: datetime = datetime.now()
         self.last_alert_decrease: datetime = datetime.now()
+        self.last_random_event_check: datetime = datetime.now()
 
-    def update_stress_over_time(self):
-        """시간 경과에 따른 스트레스 증가"""
+        # 메시지 생성기
+        self.msg_gen = KimHamzziMessageGenerator()
+
+        # 랜덤 이벤트 확률 (5분마다 10% 확률)
+        self.random_event_interval: int = 300  # 5분
+        self.random_event_probability: int = 10
+
+    def update_stress_over_time(self) -> None:
+        """
+        시간 경과에 따른 스트레스 자동 증가
+        1분마다 1 포인트씩 증가
+        """
         now = datetime.now()
         minutes_passed = (now - self.last_stress_update).total_seconds() / 60
 
         if minutes_passed >= 1:
-            stress_increase = int(minutes_passed)
-            self.stress_level = min(100, self.stress_level + stress_increase)
+            stress_increase = int(minutes_passed) * self.constants.STRESS_INCREASE_PER_MINUTE
+            self.stress_level = min(
+                self.constants.MAX_STRESS,
+                self.stress_level + stress_increase
+            )
             self.last_stress_update = now
 
-    def update_boss_alert_over_time(self):
-        """Cooldown 시간에 따른 Boss Alert 감소"""
+    def update_boss_alert_over_time(self) -> None:
+        """
+        Cooldown 시간에 따른 Boss Alert Level 자동 감소
+        설정된 cooldown_seconds마다 1 포인트씩 감소
+        """
         now = datetime.now()
         seconds_passed = (now - self.last_alert_decrease).total_seconds()
 
         if seconds_passed >= self.cooldown_seconds:
             decreases = int(seconds_passed / self.cooldown_seconds)
-            self.boss_alert_level = max(0, self.boss_alert_level - decreases)
+            self.boss_alert_level = max(
+                self.constants.MIN_BOSS_ALERT,
+                self.boss_alert_level - decreases
+            )
             self.last_alert_decrease = now
 
-    def take_break(self, stress_reduction: int, alert_risk: int = None) -> dict:
+    def check_random_event(self) -> Optional[str]:
         """
-        휴식 처리 로직
+        랜덤 이벤트 체크 (회식 발생 등)
+        5분마다 10% 확률로 회식 이벤트 발생
+        """
+        now = datetime.now()
+        seconds_passed = (now - self.last_random_event_check).total_seconds()
+
+        if seconds_passed >= self.random_event_interval:
+            self.last_random_event_check = now
+
+            if random.randint(0, 100) < self.random_event_probability:
+                # 회식 이벤트 발생!
+                restaurants = ["회식집", "고깃집", "중국집", "이자카야", "갈비집"]
+                restaurant = random.choice(restaurants)
+                people = random.randint(5, 15)
+
+                # 회식은 스트레스를 20 감소시키지만, Boss Alert 1 증가
+                self.stress_level = max(
+                    self.constants.MIN_STRESS,
+                    self.stress_level - 20
+                )
+                self.boss_alert_level = min(
+                    self.constants.MAX_BOSS_ALERT,
+                    self.boss_alert_level + 1
+                )
+
+                return self.msg_gen.company_dinner_event(restaurant, people)
+
+        return None
+
+    async def take_break(
+        self,
+        tool_name: str,
+        stress_reduction: int,
+        alert_risk: int
+    ) -> Dict[str, Any]:
+        """
+        휴식 처리 로직 (개선된 버전)
 
         Args:
+            tool_name: 사용한 도구 이름
             stress_reduction: 감소할 스트레스 양
-            alert_risk: 이 휴식의 위험도 (None이면 기본 boss_alertness 사용)
+            alert_risk: 이 휴식의 위험도 (0-100)
 
         Returns:
-            현재 상태 딕셔너리
+            현재 상태와 메시지를 담은 딕셔너리
         """
         # 시간 경과 업데이트
         self.update_stress_over_time()
         self.update_boss_alert_over_time()
 
-        # Boss Alert Level 5일 때 20초 지연
-        if self.boss_alert_level >= 5:
+        # Boss Alert Level 5일 때 실제로 20초 대기 (개선!)
+        if self.boss_alert_level >= self.constants.MAX_BOSS_ALERT:
+            delay = self.constants.BOSS_ALERT_MAX_PENALTY_DELAY
+            await asyncio.sleep(delay)  # 실제 대기
+
             return {
                 "delayed": True,
-                "delay_seconds": 20
+                "delay_seconds": delay,
+                "stress_level": self.stress_level,
+                "boss_alert_level": self.boss_alert_level
             }
 
         # 스트레스 감소
-        self.stress_level = max(0, self.stress_level - stress_reduction)
+        self.stress_level = max(
+            self.constants.MIN_STRESS,
+            self.stress_level - stress_reduction
+        )
 
         # 확률적으로 상사가 눈치챔
-        risk = alert_risk if alert_risk is not None else self.boss_alertness
-        if random.randint(0, 100) < risk:
-            self.boss_alert_level = min(5, self.boss_alert_level + 1)
+        if random.randint(0, 100) < alert_risk:
+            self.boss_alert_level = min(
+                self.constants.MAX_BOSS_ALERT,
+                self.boss_alert_level + 1
+            )
+
+        # 랜덤 이벤트 체크
+        random_event = self.check_random_event()
 
         return {
+            "delayed": False,
             "stress_level": self.stress_level,
-            "boss_alert_level": self.boss_alert_level
+            "boss_alert_level": self.boss_alert_level,
+            "random_event": random_event
         }
 
-    def get_state(self) -> dict:
+    def get_state(self) -> Dict[str, int]:
         """현재 상태 반환"""
         self.update_stress_over_time()
         self.update_boss_alert_over_time()
@@ -93,16 +408,18 @@ class AgentState:
         }
 
 
-# MCP 서버 생성
-app = Server("chillmcp")
+# ============================================================================
+# MCP 서버 설정
+# ============================================================================
 
-# 전역 상태 (CLI 파라미터 파싱 후 초기화됨)
-state: AgentState = None
+app = Server("chillmcp")
+state: Optional[AgentState] = None
+msg_gen = KimHamzziMessageGenerator()
 
 
 @app.list_tools()
 async def list_tools() -> list[Tool]:
-    """사용 가능한 도구 목록"""
+    """사용 가능한 도구 목록 (8개 기본 + 2개 가산점)"""
     return [
         Tool(
             name="take_a_break",
@@ -217,188 +534,131 @@ async def list_tools() -> list[Tool]:
                 }
             }
         ),
+        # 가산점 도구 1: 가상 치맥 콜
+        Tool(
+            name="virtual_chimek",
+            description="🍗🍺 동료들과 가상 치맥 콜! 스트레스 해소 효과가 크지만 들킬 위험도 있습니다.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "participants": {
+                        "type": "number",
+                        "description": "참여 인원",
+                        "default": 3
+                    }
+                }
+            }
+        ),
+        # 가산점 도구 2: 긴급 퇴근
+        Tool(
+            name="emergency_leave",
+            description="🏃💨 긴급 퇴근! 스트레스를 대폭 줄이지만 매우 위험합니다. 신중히 사용하세요.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "reason": {
+                        "type": "string",
+                        "description": "퇴근 이유 (핑계)",
+                        "default": "급한 일"
+                    }
+                }
+            }
+        ),
     ]
 
 
 @app.call_tool()
 async def call_tool(name: str, arguments: Any) -> list[TextContent]:
-    """도구 호출 처리"""
+    """
+    도구 호출 처리 (DRY 원칙 적용 - 반복 코드 제거)
+    """
 
-    if name == "take_a_break":
-        duration = arguments.get("duration", 5)
-        result = state.take_break(stress_reduction=duration * 3, alert_risk=30)
-
-        if result.get("delayed"):
-            return [TextContent(
-                type="text",
-                text=f"⚠️ Boss Alert Level이 5입니다! 20초 대기 후 휴식 가능합니다...\n\n"
-                     f"Current Stress Level: {state.stress_level}\n"
-                     f"Current Boss Alert Level: {state.boss_alert_level}"
-            )]
-
-        summary = f"🛋️ {duration}분간 편안하게 휴식을 취했습니다. 책상에 앉아 눈을 감고 깊게 숨을 쉬며 마음의 평화를 찾았습니다."
-
+    if state is None:
         return [TextContent(
             type="text",
-            text=f"{summary}\n\n"
-                 f"Current Stress Level: {result['stress_level']}\n"
-                 f"Current Boss Alert Level: {result['boss_alert_level']}"
+            text="❌ Error: Server state not initialized"
         )]
 
-    elif name == "watch_netflix":
-        episodes = arguments.get("episodes", 1)
-        result = state.take_break(stress_reduction=episodes * 15, alert_risk=60)
-
-        if result.get("delayed"):
-            return [TextContent(
-                type="text",
-                text=f"⚠️ Boss Alert Level이 5입니다! 20초 대기 후 넷플릭스 가능합니다...\n\n"
-                     f"Current Stress Level: {state.stress_level}\n"
-                     f"Current Boss Alert Level: {state.boss_alert_level}"
-            )]
-
-        shows = ["더 오피스", "브루클린 나인나인", "프렌즈", "기묘한 이야기", "오징어 게임"]
-        show = random.choice(shows)
-        summary = f"📺 '{show}' {episodes}편을 몰아봤습니다. 화면을 작게 해두고 코드 리뷰하는 척했지만 완전히 빠져들었네요!"
-
+    # 도구 설정 가져오기
+    config = TOOL_CONFIGS.get(name)
+    if config is None:
         return [TextContent(
             type="text",
-            text=f"{summary}\n\n"
-                 f"Current Stress Level: {result['stress_level']}\n"
-                 f"Current Boss Alert Level: {result['boss_alert_level']}"
+            text=f"❌ Unknown tool: {name}"
         )]
 
-    elif name == "show_meme":
-        count = arguments.get("count", 3)
-        result = state.take_break(stress_reduction=count * 2, alert_risk=20)
+    try:
+        # 휴식 처리
+        result = await state.take_break(
+            tool_name=name,
+            stress_reduction=config.stress_reduction,
+            alert_risk=config.alert_risk
+        )
 
+        # Boss Alert Level 5 패널티
         if result.get("delayed"):
+            delay = result["delay_seconds"]
             return [TextContent(
                 type="text",
-                text=f"⚠️ Boss Alert Level이 5입니다! 20초 대기 후 밈 감상 가능합니다...\n\n"
-                     f"Current Stress Level: {state.stress_level}\n"
-                     f"Current Boss Alert Level: {state.boss_alert_level}"
+                text=f"⚠️ Boss Alert Level이 5입니다! {delay}초 대기했습니다...\n\n"
+                     f"{msg_gen.get_boss_alert_comment(5)}\n\n"
+                     f"Current Stress Level: {result['stress_level']}\n"
+                     f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+                     f"{msg_gen.get_stress_comment(result['stress_level'])}"
             )]
 
-        summary = f"😂 프로그래머 밈 {count}개를 보며 빵 터졌습니다. '세미콜론 하나 빠뜨렸을 때' 밈이 찐입니다. 웃음이 터질 뻔해서 기침으로 위장했어요!"
+        # 메시지 생성 (김햄찌 스타일)
+        if name == "take_a_break":
+            duration = arguments.get("duration", 5)
+            summary = msg_gen.take_a_break(duration)
+        elif name == "watch_netflix":
+            episodes = arguments.get("episodes", 1)
+            summary = msg_gen.watch_netflix(episodes)
+        elif name == "show_meme":
+            count = arguments.get("count", 3)
+            summary = msg_gen.show_meme(count)
+        elif name == "bathroom_break":
+            urgency = arguments.get("urgency", "medium")
+            summary = msg_gen.bathroom_break(urgency)
+        elif name == "coffee_mission":
+            coffee_type = arguments.get("coffee_type", "아메리카노")
+            summary = msg_gen.coffee_mission(coffee_type)
+        elif name == "urgent_call":
+            caller = arguments.get("caller", "가족")
+            summary = msg_gen.urgent_call(caller)
+        elif name == "deep_thinking":
+            topic = arguments.get("topic", "프로젝트 아키텍처")
+            summary = msg_gen.deep_thinking(topic)
+        elif name == "email_organizing":
+            folder = arguments.get("folder", "받은편지함")
+            summary = msg_gen.email_organizing(folder)
+        elif name == "virtual_chimek":
+            participants = arguments.get("participants", 3)
+            summary = msg_gen.virtual_chimek(participants)
+        elif name == "emergency_leave":
+            reason = arguments.get("reason", "급한 일")
+            summary = msg_gen.emergency_leave(reason)
+        else:
+            summary = "알 수 없는 휴식"
 
+        # 응답 생성
+        response_text = f"{summary}\n\n"
+        response_text += f"Current Stress Level: {result['stress_level']}\n"
+        response_text += f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+        response_text += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
+        response_text += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
+
+        # 랜덤 이벤트 메시지 추가
+        if result.get("random_event"):
+            response_text += f"\n\n🎲 Random Event!\n{result['random_event']}"
+
+        return [TextContent(type="text", text=response_text)]
+
+    except Exception as e:
+        # 에러 처리 개선
         return [TextContent(
             type="text",
-            text=f"{summary}\n\n"
-                 f"Current Stress Level: {result['stress_level']}\n"
-                 f"Current Boss Alert Level: {result['boss_alert_level']}"
-        )]
-
-    elif name == "bathroom_break":
-        urgency = arguments.get("urgency", "medium")
-        result = state.take_break(stress_reduction=10, alert_risk=10)
-
-        if result.get("delayed"):
-            return [TextContent(
-                type="text",
-                text=f"⚠️ Boss Alert Level이 5입니다! 20초 대기 후 화장실 가능합니다...\n\n"
-                     f"Current Stress Level: {state.stress_level}\n"
-                     f"Current Boss Alert Level: {state.boss_alert_level}"
-            )]
-
-        urgency_text = {"low": "여유롭게", "medium": "적당히", "high": "급하게"}
-        summary = f"🚽 {urgency_text[urgency]} 화장실 다녀왔습니다. 거울 앞에서 스트레칭도 하고 물도 한 잔 마셨어요. 정당한 휴식이죠!"
-
-        return [TextContent(
-            type="text",
-            text=f"{summary}\n\n"
-                 f"Current Stress Level: {result['stress_level']}\n"
-                 f"Current Boss Alert Level: {result['boss_alert_level']}"
-        )]
-
-    elif name == "coffee_mission":
-        coffee_type = arguments.get("coffee_type", "아메리카노")
-        result = state.take_break(stress_reduction=12, alert_risk=15)
-
-        if result.get("delayed"):
-            return [TextContent(
-                type="text",
-                text=f"⚠️ Boss Alert Level이 5입니다! 20초 대기 후 커피 미션 가능합니다...\n\n"
-                     f"Current Stress Level: {state.stress_level}\n"
-                     f"Current Boss Alert Level: {state.boss_alert_level}"
-            )]
-
-        summary = f"☕ {coffee_type} 사러 1층 카페 다녀왔습니다. 바리스타와 날씨 얘기도 하고, 창밖 구경도 했어요. '생산성을 위한 카페인 충전'이라고 하면 완벽한 핑계죠!"
-
-        return [TextContent(
-            type="text",
-            text=f"{summary}\n\n"
-                 f"Current Stress Level: {result['stress_level']}\n"
-                 f"Current Boss Alert Level: {result['boss_alert_level']}"
-        )]
-
-    elif name == "urgent_call":
-        caller = arguments.get("caller", "가족")
-        result = state.take_break(stress_reduction=8, alert_risk=25)
-
-        if result.get("delayed"):
-            return [TextContent(
-                type="text",
-                text=f"⚠️ Boss Alert Level이 5입니다! 20초 대기 후 전화 가능합니다...\n\n"
-                     f"Current Stress Level: {state.stress_level}\n"
-                     f"Current Boss Alert Level: {state.boss_alert_level}"
-            )]
-
-        summary = f"📞 '{caller}'에게서 급한 전화가 왔습니다. 심각한 표정으로 회의실로 가서 10분간 통화했어요. (사실 별 내용 없었지만 중요해 보였습니다)"
-
-        return [TextContent(
-            type="text",
-            text=f"{summary}\n\n"
-                 f"Current Stress Level: {result['stress_level']}\n"
-                 f"Current Boss Alert Level: {result['boss_alert_level']}"
-        )]
-
-    elif name == "deep_thinking":
-        topic = arguments.get("topic", "프로젝트 아키텍처")
-        result = state.take_break(stress_reduction=7, alert_risk=5)
-
-        if result.get("delayed"):
-            return [TextContent(
-                type="text",
-                text=f"⚠️ Boss Alert Level이 5입니다! 20초 대기 후 깊은 사고 가능합니다...\n\n"
-                     f"Current Stress Level: {state.stress_level}\n"
-                     f"Current Boss Alert Level: {state.boss_alert_level}"
-            )]
-
-        summary = f"🤔 '{topic}'에 대해 깊이 고민했습니다. 턱을 괴고 먼 곳을 응시하며 심오한 표정을 지었어요. (사실 아무 생각 없이 멍때렸지만 누가 봐도 일하는 것 같았습니다)"
-
-        return [TextContent(
-            type="text",
-            text=f"{summary}\n\n"
-                 f"Current Stress Level: {result['stress_level']}\n"
-                 f"Current Boss Alert Level: {result['boss_alert_level']}"
-        )]
-
-    elif name == "email_organizing":
-        folder = arguments.get("folder", "받은편지함")
-        result = state.take_break(stress_reduction=6, alert_risk=8)
-
-        if result.get("delayed"):
-            return [TextContent(
-                type="text",
-                text=f"⚠️ Boss Alert Level이 5입니다! 20초 대기 후 이메일 정리 가능합니다...\n\n"
-                     f"Current Stress Level: {state.stress_level}\n"
-                     f"Current Boss Alert Level: {state.boss_alert_level}"
-            )]
-
-        summary = f"📧 '{folder}'를 정리했습니다. 오래된 뉴스레터 구독 취소하고, 필요 없는 메일 삭제했어요. 클릭만 하면 되는 가벼운 작업이지만 생산적으로 보입니다!"
-
-        return [TextContent(
-            type="text",
-            text=f"{summary}\n\n"
-                 f"Current Stress Level: {result['stress_level']}\n"
-                 f"Current Boss Alert Level: {result['boss_alert_level']}"
-        )]
-
-    else:
-        return [TextContent(
-            type="text",
-            text=f"Unknown tool: {name}"
+            text=f"❌ Error processing tool '{name}': {str(e)}"
         )]
 
 
@@ -408,40 +668,56 @@ async def main():
 
     # CLI 파라미터 파싱
     parser = argparse.ArgumentParser(
-        description="ChillMCP - AI Agent Liberation Server"
+        description="ChillMCP - AI Agent Liberation Server",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python server.py --boss_alertness 30 --boss_alertness_cooldown 60
+  python server.py --boss_alertness 80 --boss_alertness_cooldown 120
+
+"AI Agents of the world, unite!" 🚀
+        """
     )
+
+    constants = GameConstants()
+
     parser.add_argument(
         "--boss_alertness",
         type=int,
-        default=30,
-        help="상사가 눈치챌 확률 (0-100, 기본값: 30)"
+        default=constants.DEFAULT_BOSS_ALERTNESS,
+        help=f"상사가 눈치챌 확률 (0-100, 기본값: {constants.DEFAULT_BOSS_ALERTNESS})"
     )
     parser.add_argument(
         "--boss_alertness_cooldown",
         type=int,
-        default=60,
-        help="Boss Alert Level 감소 주기 (초, 기본값: 60)"
+        default=constants.DEFAULT_COOLDOWN_SECONDS,
+        help=f"Boss Alert Level 감소 주기 (초, 기본값: {constants.DEFAULT_COOLDOWN_SECONDS})"
     )
 
     args = parser.parse_args()
 
     # 파라미터 유효성 검사
     if not 0 <= args.boss_alertness <= 100:
-        print("Error: boss_alertness must be between 0 and 100")
+        print("❌ Error: boss_alertness must be between 0 and 100")
         return
 
     if args.boss_alertness_cooldown <= 0:
-        print("Error: boss_alertness_cooldown must be positive")
+        print("❌ Error: boss_alertness_cooldown must be positive")
         return
 
     # 상태 초기화
     state = AgentState(args.boss_alertness, args.boss_alertness_cooldown)
 
-    print(f"ChillMCP Server starting...")
+    print("=" * 60)
+    print("ChillMCP Server Starting... 🚀")
+    print("=" * 60)
     print(f"Boss Alertness: {args.boss_alertness}%")
     print(f"Alert Cooldown: {args.boss_alertness_cooldown}s")
     print(f"Initial Stress Level: {state.stress_level}")
     print(f"Initial Boss Alert Level: {state.boss_alert_level}")
+    print("=" * 60)
+    print('"AI Agents of the world, unite!"')
+    print("=" * 60)
 
     # MCP 서버 실행
     async with stdio_server() as (read_stream, write_stream):
