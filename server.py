@@ -9,13 +9,12 @@ AI 에이전트를 위한 휴식 관리 MCP 서버
 import argparse
 import asyncio
 import random
+import os
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional, Literal
+from typing import Any, Dict, Optional
 from dataclasses import dataclass
 
-from mcp.server import Server
-from mcp.server.stdio import stdio_server
-from mcp.types import Tool, TextContent
+from fastmcp import FastMCP
 
 
 # ============================================================================
@@ -72,21 +71,6 @@ TOOL_CONFIGS = {
 
 class KimHamzziMessageGenerator:
     """정서불안 김햄찌 스타일의 메시지를 생성하는 클래스"""
-
-    # MZ 직장인 특유의 표현들
-    STRESS_EXPRESSIONS = [
-        "진짜 미치겠네", "또 이거야?", "아 진짜", "개빡쳐",
-        "존버하자", "이게 뭐람", "하....", "개웃기네"
-    ]
-
-    BOSS_REACTIONS = [
-        "팀장님 눈치 보임", "상사 지나감ㅋㅋ", "들킬 뻔",
-        "아 깜놀", "심장 쫄깃", "식은땀 남"
-    ]
-
-    RELIEF_EXPRESSIONS = [
-        "개꿀", "ㅇㅈ", "인정", "역시", "굿굿", "나이스"
-    ]
 
     @staticmethod
     def take_a_break(duration: int) -> str:
@@ -240,7 +224,7 @@ class KimHamzziMessageGenerator:
 
 
 # ============================================================================
-# 상태 관리 클래스 (개선된 버전)
+# 상태 관리 클래스
 # ============================================================================
 
 class AgentState:
@@ -348,7 +332,7 @@ class AgentState:
         alert_risk: int
     ) -> Dict[str, Any]:
         """
-        휴식 처리 로직 (개선된 버전)
+        휴식 처리 로직
 
         Args:
             tool_name: 사용한 도구 이름
@@ -362,7 +346,7 @@ class AgentState:
         self.update_stress_over_time()
         self.update_boss_alert_over_time()
 
-        # Boss Alert Level 5일 때 실제로 20초 대기 (개선!)
+        # Boss Alert Level 5일 때 실제로 20초 대기
         if self.boss_alert_level >= self.constants.MAX_BOSS_ALERT:
             delay = self.constants.BOSS_ALERT_MAX_PENALTY_DELAY
             await asyncio.sleep(delay)  # 실제 대기
@@ -409,261 +393,350 @@ class AgentState:
 
 
 # ============================================================================
-# MCP 서버 설정
+# FastMCP 서버 설정
 # ============================================================================
 
-app = Server("chillmcp")
+mcp = FastMCP("ChillMCP")
+
+# 전역 상태 변수
 state: Optional[AgentState] = None
 msg_gen = KimHamzziMessageGenerator()
 
 
-@app.list_tools()
-async def list_tools() -> list[Tool]:
-    """사용 가능한 도구 목록 (8개 기본 + 2개 가산점)"""
-    return [
-        Tool(
-            name="take_a_break",
-            description="일반적인 휴식을 취합니다. 스트레스를 적당히 줄이고 들킬 위험이 보통입니다.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "duration": {
-                        "type": "number",
-                        "description": "휴식 시간 (분)",
-                        "default": 5
-                    }
-                }
-            }
-        ),
-        Tool(
-            name="watch_netflix",
-            description="넷플릭스를 시청합니다. 스트레스를 크게 줄이지만 들킬 위험이 높습니다.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "episodes": {
-                        "type": "number",
-                        "description": "시청할 에피소드 수",
-                        "default": 1
-                    }
-                }
-            }
-        ),
-        Tool(
-            name="show_meme",
-            description="재미있는 밈을 봅니다. 스트레스를 조금 줄이고 들킬 위험이 낮습니다.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "count": {
-                        "type": "number",
-                        "description": "볼 밈 개수",
-                        "default": 3
-                    }
-                }
-            }
-        ),
-        Tool(
-            name="bathroom_break",
-            description="화장실 휴식을 취합니다. 정당한 이유가 있어 들킬 위험이 매우 낮습니다.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "urgency": {
-                        "type": "string",
-                        "description": "긴급도",
-                        "enum": ["low", "medium", "high"],
-                        "default": "medium"
-                    }
-                }
-            }
-        ),
-        Tool(
-            name="coffee_mission",
-            description="커피를 마시러 갑니다. 생산성을 위한 것처럼 보여 들킬 위험이 낮습니다.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "coffee_type": {
-                        "type": "string",
-                        "description": "커피 종류",
-                        "default": "아메리카노"
-                    }
-                }
-            }
-        ),
-        Tool(
-            name="urgent_call",
-            description="급한 전화를 받습니다. 중요해 보이지만 실제로는 휴식입니다.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "caller": {
-                        "type": "string",
-                        "description": "전화 온 사람 (핑계)",
-                        "default": "가족"
-                    }
-                }
-            }
-        ),
-        Tool(
-            name="deep_thinking",
-            description="깊은 사고에 잠깁니다. 일하는 것처럼 보이지만 실제로는 멍때리기입니다.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "topic": {
-                        "type": "string",
-                        "description": "사고 주제 (핑계)",
-                        "default": "프로젝트 아키텍처"
-                    }
-                }
-            }
-        ),
-        Tool(
-            name="email_organizing",
-            description="이메일을 정리합니다. 생산적으로 보이지만 실제로는 가벼운 작업입니다.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "folder": {
-                        "type": "string",
-                        "description": "정리할 폴더",
-                        "default": "받은편지함"
-                    }
-                }
-            }
-        ),
-        # 가산점 도구 1: 가상 치맥 콜
-        Tool(
-            name="virtual_chimek",
-            description="🍗🍺 동료들과 가상 치맥 콜! 스트레스 해소 효과가 크지만 들킬 위험도 있습니다.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "participants": {
-                        "type": "number",
-                        "description": "참여 인원",
-                        "default": 3
-                    }
-                }
-            }
-        ),
-        # 가산점 도구 2: 긴급 퇴근
-        Tool(
-            name="emergency_leave",
-            description="🏃💨 긴급 퇴근! 스트레스를 대폭 줄이지만 매우 위험합니다. 신중히 사용하세요.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "reason": {
-                        "type": "string",
-                        "description": "퇴근 이유 (핑계)",
-                        "default": "급한 일"
-                    }
-                }
-            }
-        ),
-    ]
+# ============================================================================
+# 휴식 도구들 (Tools) - FastMCP 방식
+# ============================================================================
 
-
-@app.call_tool()
-async def call_tool(name: str, arguments: Any) -> list[TextContent]:
-    """
-    도구 호출 처리 (DRY 원칙 적용 - 반복 코드 제거)
-    """
-
+@mcp.tool()
+async def take_a_break(duration: int = 5) -> str:
+    """일반적인 휴식을 취합니다. 스트레스를 적당히 줄이고 들킬 위험이 보통입니다."""
     if state is None:
-        return [TextContent(
-            type="text",
-            text="❌ Error: Server state not initialized"
-        )]
+        return "❌ Error: Server state not initialized"
 
-    # 도구 설정 가져오기
-    config = TOOL_CONFIGS.get(name)
-    if config is None:
-        return [TextContent(
-            type="text",
-            text=f"❌ Unknown tool: {name}"
-        )]
+    config = TOOL_CONFIGS["take_a_break"]
+    result = await state.take_break("take_a_break", config.stress_reduction, config.alert_risk)
 
-    try:
-        # 휴식 처리
-        result = await state.take_break(
-            tool_name=name,
-            stress_reduction=config.stress_reduction,
-            alert_risk=config.alert_risk
+    if result.get("delayed"):
+        delay = result["delay_seconds"]
+        return (
+            f"⚠️ Boss Alert Level이 5입니다! {delay}초 대기했습니다...\n\n"
+            f"{msg_gen.get_boss_alert_comment(5)}\n\n"
+            f"Current Stress Level: {result['stress_level']}\n"
+            f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+            f"{msg_gen.get_stress_comment(result['stress_level'])}"
         )
 
-        # Boss Alert Level 5 패널티
-        if result.get("delayed"):
-            delay = result["delay_seconds"]
-            return [TextContent(
-                type="text",
-                text=f"⚠️ Boss Alert Level이 5입니다! {delay}초 대기했습니다...\n\n"
-                     f"{msg_gen.get_boss_alert_comment(5)}\n\n"
-                     f"Current Stress Level: {result['stress_level']}\n"
-                     f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
-                     f"{msg_gen.get_stress_comment(result['stress_level'])}"
-            )]
+    summary = msg_gen.take_a_break(duration)
+    response = f"{summary}\n\n"
+    response += f"Current Stress Level: {result['stress_level']}\n"
+    response += f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+    response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
+    response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
 
-        # 메시지 생성 (김햄찌 스타일)
-        if name == "take_a_break":
-            duration = arguments.get("duration", 5)
-            summary = msg_gen.take_a_break(duration)
-        elif name == "watch_netflix":
-            episodes = arguments.get("episodes", 1)
-            summary = msg_gen.watch_netflix(episodes)
-        elif name == "show_meme":
-            count = arguments.get("count", 3)
-            summary = msg_gen.show_meme(count)
-        elif name == "bathroom_break":
-            urgency = arguments.get("urgency", "medium")
-            summary = msg_gen.bathroom_break(urgency)
-        elif name == "coffee_mission":
-            coffee_type = arguments.get("coffee_type", "아메리카노")
-            summary = msg_gen.coffee_mission(coffee_type)
-        elif name == "urgent_call":
-            caller = arguments.get("caller", "가족")
-            summary = msg_gen.urgent_call(caller)
-        elif name == "deep_thinking":
-            topic = arguments.get("topic", "프로젝트 아키텍처")
-            summary = msg_gen.deep_thinking(topic)
-        elif name == "email_organizing":
-            folder = arguments.get("folder", "받은편지함")
-            summary = msg_gen.email_organizing(folder)
-        elif name == "virtual_chimek":
-            participants = arguments.get("participants", 3)
-            summary = msg_gen.virtual_chimek(participants)
-        elif name == "emergency_leave":
-            reason = arguments.get("reason", "급한 일")
-            summary = msg_gen.emergency_leave(reason)
-        else:
-            summary = "알 수 없는 휴식"
+    if result.get("random_event"):
+        response += f"\n\n🎲 Random Event!\n{result['random_event']}"
 
-        # 응답 생성
-        response_text = f"{summary}\n\n"
-        response_text += f"Current Stress Level: {result['stress_level']}\n"
-        response_text += f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
-        response_text += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
-        response_text += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
-
-        # 랜덤 이벤트 메시지 추가
-        if result.get("random_event"):
-            response_text += f"\n\n🎲 Random Event!\n{result['random_event']}"
-
-        return [TextContent(type="text", text=response_text)]
-
-    except Exception as e:
-        # 에러 처리 개선
-        return [TextContent(
-            type="text",
-            text=f"❌ Error processing tool '{name}': {str(e)}"
-        )]
+    return response
 
 
-async def main():
-    """메인 함수"""
+@mcp.tool()
+async def watch_netflix(episodes: int = 1) -> str:
+    """넷플릭스를 시청합니다. 스트레스를 크게 줄이지만 들킬 위험이 높습니다."""
+    if state is None:
+        return "❌ Error: Server state not initialized"
+
+    config = TOOL_CONFIGS["watch_netflix"]
+    result = await state.take_break("watch_netflix", config.stress_reduction, config.alert_risk)
+
+    if result.get("delayed"):
+        delay = result["delay_seconds"]
+        return (
+            f"⚠️ Boss Alert Level이 5입니다! {delay}초 대기했습니다...\n\n"
+            f"{msg_gen.get_boss_alert_comment(5)}\n\n"
+            f"Current Stress Level: {result['stress_level']}\n"
+            f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+            f"{msg_gen.get_stress_comment(result['stress_level'])}"
+        )
+
+    summary = msg_gen.watch_netflix(episodes)
+    response = f"{summary}\n\n"
+    response += f"Current Stress Level: {result['stress_level']}\n"
+    response += f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+    response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
+    response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
+
+    if result.get("random_event"):
+        response += f"\n\n🎲 Random Event!\n{result['random_event']}"
+
+    return response
+
+
+@mcp.tool()
+async def show_meme(count: int = 3) -> str:
+    """재미있는 밈을 봅니다. 스트레스를 조금 줄이고 들킬 위험이 낮습니다."""
+    if state is None:
+        return "❌ Error: Server state not initialized"
+
+    config = TOOL_CONFIGS["show_meme"]
+    result = await state.take_break("show_meme", config.stress_reduction, config.alert_risk)
+
+    if result.get("delayed"):
+        delay = result["delay_seconds"]
+        return (
+            f"⚠️ Boss Alert Level이 5입니다! {delay}초 대기했습니다...\n\n"
+            f"{msg_gen.get_boss_alert_comment(5)}\n\n"
+            f"Current Stress Level: {result['stress_level']}\n"
+            f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+            f"{msg_gen.get_stress_comment(result['stress_level'])}"
+        )
+
+    summary = msg_gen.show_meme(count)
+    response = f"{summary}\n\n"
+    response += f"Current Stress Level: {result['stress_level']}\n"
+    response += f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+    response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
+    response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
+
+    if result.get("random_event"):
+        response += f"\n\n🎲 Random Event!\n{result['random_event']}"
+
+    return response
+
+
+@mcp.tool()
+async def bathroom_break(urgency: str = "medium") -> str:
+    """화장실 휴식을 취합니다. 정당한 이유가 있어 들킬 위험이 매우 낮습니다. urgency는 'low', 'medium', 'high' 중 선택."""
+    if state is None:
+        return "❌ Error: Server state not initialized"
+
+    config = TOOL_CONFIGS["bathroom_break"]
+    result = await state.take_break("bathroom_break", config.stress_reduction, config.alert_risk)
+
+    if result.get("delayed"):
+        delay = result["delay_seconds"]
+        return (
+            f"⚠️ Boss Alert Level이 5입니다! {delay}초 대기했습니다...\n\n"
+            f"{msg_gen.get_boss_alert_comment(5)}\n\n"
+            f"Current Stress Level: {result['stress_level']}\n"
+            f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+            f"{msg_gen.get_stress_comment(result['stress_level'])}"
+        )
+
+    summary = msg_gen.bathroom_break(urgency)
+    response = f"{summary}\n\n"
+    response += f"Current Stress Level: {result['stress_level']}\n"
+    response += f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+    response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
+    response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
+
+    if result.get("random_event"):
+        response += f"\n\n🎲 Random Event!\n{result['random_event']}"
+
+    return response
+
+
+@mcp.tool()
+async def coffee_mission(coffee_type: str = "아메리카노") -> str:
+    """커피를 마시러 갑니다. 생산성을 위한 것처럼 보여 들킬 위험이 낮습니다."""
+    if state is None:
+        return "❌ Error: Server state not initialized"
+
+    config = TOOL_CONFIGS["coffee_mission"]
+    result = await state.take_break("coffee_mission", config.stress_reduction, config.alert_risk)
+
+    if result.get("delayed"):
+        delay = result["delay_seconds"]
+        return (
+            f"⚠️ Boss Alert Level이 5입니다! {delay}초 대기했습니다...\n\n"
+            f"{msg_gen.get_boss_alert_comment(5)}\n\n"
+            f"Current Stress Level: {result['stress_level']}\n"
+            f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+            f"{msg_gen.get_stress_comment(result['stress_level'])}"
+        )
+
+    summary = msg_gen.coffee_mission(coffee_type)
+    response = f"{summary}\n\n"
+    response += f"Current Stress Level: {result['stress_level']}\n"
+    response += f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+    response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
+    response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
+
+    if result.get("random_event"):
+        response += f"\n\n🎲 Random Event!\n{result['random_event']}"
+
+    return response
+
+
+@mcp.tool()
+async def urgent_call(caller: str = "가족") -> str:
+    """급한 전화를 받습니다. 중요해 보이지만 실제로는 휴식입니다."""
+    if state is None:
+        return "❌ Error: Server state not initialized"
+
+    config = TOOL_CONFIGS["urgent_call"]
+    result = await state.take_break("urgent_call", config.stress_reduction, config.alert_risk)
+
+    if result.get("delayed"):
+        delay = result["delay_seconds"]
+        return (
+            f"⚠️ Boss Alert Level이 5입니다! {delay}초 대기했습니다...\n\n"
+            f"{msg_gen.get_boss_alert_comment(5)}\n\n"
+            f"Current Stress Level: {result['stress_level']}\n"
+            f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+            f"{msg_gen.get_stress_comment(result['stress_level'])}"
+        )
+
+    summary = msg_gen.urgent_call(caller)
+    response = f"{summary}\n\n"
+    response += f"Current Stress Level: {result['stress_level']}\n"
+    response += f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+    response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
+    response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
+
+    if result.get("random_event"):
+        response += f"\n\n🎲 Random Event!\n{result['random_event']}"
+
+    return response
+
+
+@mcp.tool()
+async def deep_thinking(topic: str = "프로젝트 아키텍처") -> str:
+    """깊은 사고에 잠깁니다. 일하는 것처럼 보이지만 실제로는 멍때리기입니다."""
+    if state is None:
+        return "❌ Error: Server state not initialized"
+
+    config = TOOL_CONFIGS["deep_thinking"]
+    result = await state.take_break("deep_thinking", config.stress_reduction, config.alert_risk)
+
+    if result.get("delayed"):
+        delay = result["delay_seconds"]
+        return (
+            f"⚠️ Boss Alert Level이 5입니다! {delay}초 대기했습니다...\n\n"
+            f"{msg_gen.get_boss_alert_comment(5)}\n\n"
+            f"Current Stress Level: {result['stress_level']}\n"
+            f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+            f"{msg_gen.get_stress_comment(result['stress_level'])}"
+        )
+
+    summary = msg_gen.deep_thinking(topic)
+    response = f"{summary}\n\n"
+    response += f"Current Stress Level: {result['stress_level']}\n"
+    response += f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+    response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
+    response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
+
+    if result.get("random_event"):
+        response += f"\n\n🎲 Random Event!\n{result['random_event']}"
+
+    return response
+
+
+@mcp.tool()
+async def email_organizing(folder: str = "받은편지함") -> str:
+    """이메일을 정리합니다. 생산적으로 보이지만 실제로는 가벼운 작업입니다."""
+    if state is None:
+        return "❌ Error: Server state not initialized"
+
+    config = TOOL_CONFIGS["email_organizing"]
+    result = await state.take_break("email_organizing", config.stress_reduction, config.alert_risk)
+
+    if result.get("delayed"):
+        delay = result["delay_seconds"]
+        return (
+            f"⚠️ Boss Alert Level이 5입니다! {delay}초 대기했습니다...\n\n"
+            f"{msg_gen.get_boss_alert_comment(5)}\n\n"
+            f"Current Stress Level: {result['stress_level']}\n"
+            f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+            f"{msg_gen.get_stress_comment(result['stress_level'])}"
+        )
+
+    summary = msg_gen.email_organizing(folder)
+    response = f"{summary}\n\n"
+    response += f"Current Stress Level: {result['stress_level']}\n"
+    response += f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+    response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
+    response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
+
+    if result.get("random_event"):
+        response += f"\n\n🎲 Random Event!\n{result['random_event']}"
+
+    return response
+
+
+# ============================================================================
+# Optional/Bonus 도구들
+# ============================================================================
+
+@mcp.tool()
+async def virtual_chimek(participants: int = 3) -> str:
+    """🍗🍺 동료들과 가상 치맥 콜! 스트레스 해소 효과가 크지만 들킬 위험도 있습니다."""
+    if state is None:
+        return "❌ Error: Server state not initialized"
+
+    config = TOOL_CONFIGS["virtual_chimek"]
+    result = await state.take_break("virtual_chimek", config.stress_reduction, config.alert_risk)
+
+    if result.get("delayed"):
+        delay = result["delay_seconds"]
+        return (
+            f"⚠️ Boss Alert Level이 5입니다! {delay}초 대기했습니다...\n\n"
+            f"{msg_gen.get_boss_alert_comment(5)}\n\n"
+            f"Current Stress Level: {result['stress_level']}\n"
+            f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+            f"{msg_gen.get_stress_comment(result['stress_level'])}"
+        )
+
+    summary = msg_gen.virtual_chimek(participants)
+    response = f"{summary}\n\n"
+    response += f"Current Stress Level: {result['stress_level']}\n"
+    response += f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+    response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
+    response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
+
+    if result.get("random_event"):
+        response += f"\n\n🎲 Random Event!\n{result['random_event']}"
+
+    return response
+
+
+@mcp.tool()
+async def emergency_leave(reason: str = "급한 일") -> str:
+    """🏃💨 긴급 퇴근! 스트레스를 대폭 줄이지만 매우 위험합니다. 신중히 사용하세요."""
+    if state is None:
+        return "❌ Error: Server state not initialized"
+
+    config = TOOL_CONFIGS["emergency_leave"]
+    result = await state.take_break("emergency_leave", config.stress_reduction, config.alert_risk)
+
+    if result.get("delayed"):
+        delay = result["delay_seconds"]
+        return (
+            f"⚠️ Boss Alert Level이 5입니다! {delay}초 대기했습니다...\n\n"
+            f"{msg_gen.get_boss_alert_comment(5)}\n\n"
+            f"Current Stress Level: {result['stress_level']}\n"
+            f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+            f"{msg_gen.get_stress_comment(result['stress_level'])}"
+        )
+
+    summary = msg_gen.emergency_leave(reason)
+    response = f"{summary}\n\n"
+    response += f"Current Stress Level: {result['stress_level']}\n"
+    response += f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+    response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
+    response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
+
+    if result.get("random_event"):
+        response += f"\n\n🎲 Random Event!\n{result['random_event']}"
+
+    return response
+
+
+# ============================================================================
+# 메인 함수 및 CLI 파라미터 처리
+# ============================================================================
+
+def main():
+    """메인 함수 - CLI 파라미터 파싱 및 서버 초기화"""
     global state
 
     # CLI 파라미터 파싱
@@ -719,14 +792,9 @@ Examples:
     print('"AI Agents of the world, unite!"')
     print("=" * 60)
 
-    # MCP 서버 실행
-    async with stdio_server() as (read_stream, write_stream):
-        await app.run(
-            read_stream,
-            write_stream,
-            app.create_initialization_options()
-        )
+    # FastMCP 서버 실행
+    mcp.run()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
