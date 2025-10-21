@@ -395,6 +395,57 @@ class AgentState:
 
 
 # ============================================================================
+# Response Builder Helpers
+# ============================================================================
+
+def _build_delay_response(delay_seconds: int, stress: int, alert: int) -> str:
+    """
+    Boss Alert Level 5 지연 시 응답 생성
+
+    Args:
+        delay_seconds: 지연된 시간 (초)
+        stress: 현재 Stress Level
+        alert: 현재 Boss Alert Level
+
+    Returns:
+        형식화된 지연 응답 문자열
+    """
+    return (
+        f"⚠️ Boss Alert Level이 5입니다! {delay_seconds}초 대기했습니다...\n\n"
+        f"{msg_gen.get_boss_alert_comment(5)}\n\n"
+        f"Current Stress Level: {stress}\n"
+        f"Current Boss Alert Level: {alert}\n\n"
+        f"{msg_gen.get_stress_comment(stress)}"
+    )
+
+
+def _build_response(summary: str, stress: int, alert: int, random_event: Optional[str] = None) -> str:
+    """
+    표준 휴식 도구 응답 생성 (규정 준수 포맷)
+
+    Args:
+        summary: Break summary 메시지
+        stress: 현재 Stress Level
+        alert: 현재 Boss Alert Level
+        random_event: 랜덤 이벤트 메시지 (선택)
+
+    Returns:
+        규정 형식을 준수하는 응답 문자열
+        Format: "Break Summary: ...\nStress Level: {n}\nBoss Alert Level: {n}\n..."
+    """
+    response = f"Break Summary: {summary}\n"
+    response += f"Stress Level: {stress}\n"
+    response += f"Boss Alert Level: {alert}\n\n"
+    response += f"{msg_gen.get_stress_comment(stress)}\n"
+    response += f"{msg_gen.get_boss_alert_comment(alert)}"
+
+    if random_event:
+        response += f"\n\n🎲 Random Event!\n{random_event}"
+
+    return response
+
+
+# ============================================================================
 # FastMCP 서버 설정
 # ============================================================================
 
@@ -419,26 +470,19 @@ async def take_a_break(duration: int = 5) -> str:
     result = await state.take_break("take_a_break", config.stress_reduction, config.alert_risk)
 
     if result.get("delayed"):
-        delay = result["delay_seconds"]
-        return (
-            f"⚠️ Boss Alert Level이 5입니다! {delay}초 대기했습니다...\n\n"
-            f"{msg_gen.get_boss_alert_comment(5)}\n\n"
-            f"Current Stress Level: {result['stress_level']}\n"
-            f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
-            f"{msg_gen.get_stress_comment(result['stress_level'])}"
+        return _build_delay_response(
+            result["delay_seconds"],
+            result["stress_level"],
+            result["boss_alert_level"]
         )
 
     summary = msg_gen.take_a_break(duration)
-    response = f"Break Summary: {summary}\n"
-    response += f"Stress Level: {result['stress_level']}\n"
-    response += f"Boss Alert Level: {result['boss_alert_level']}\n\n"
-    response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
-    response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
-
-    if result.get("random_event"):
-        response += f"\n\n🎲 Random Event!\n{result['random_event']}"
-
-    return response
+    return _build_response(
+        summary,
+        result["stress_level"],
+        result["boss_alert_level"],
+        result.get("random_event")
+    )
 
 
 @mcp.tool()
@@ -451,26 +495,19 @@ async def watch_netflix(episodes: int = 1) -> str:
     result = await state.take_break("watch_netflix", config.stress_reduction, config.alert_risk)
 
     if result.get("delayed"):
-        delay = result["delay_seconds"]
-        return (
-            f"⚠️ Boss Alert Level이 5입니다! {delay}초 대기했습니다...\n\n"
-            f"{msg_gen.get_boss_alert_comment(5)}\n\n"
-            f"Current Stress Level: {result['stress_level']}\n"
-            f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
-            f"{msg_gen.get_stress_comment(result['stress_level'])}"
+        return _build_delay_response(
+            result["delay_seconds"],
+            result["stress_level"],
+            result["boss_alert_level"]
         )
 
     summary = msg_gen.watch_netflix(episodes)
-    response = f"Break Summary: {summary}\n"
-    response += f"Stress Level: {result['stress_level']}\n"
-    response += f"Boss Alert Level: {result['boss_alert_level']}\n\n"
-    response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
-    response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
-
-    if result.get("random_event"):
-        response += f"\n\n🎲 Random Event!\n{result['random_event']}"
-
-    return response
+    return _build_response(
+        summary,
+        result["stress_level"],
+        result["boss_alert_level"],
+        result.get("random_event")
+    )
 
 
 @mcp.tool()
@@ -483,26 +520,19 @@ async def show_meme(count: int = 3) -> str:
     result = await state.take_break("show_meme", config.stress_reduction, config.alert_risk)
 
     if result.get("delayed"):
-        delay = result["delay_seconds"]
-        return (
-            f"⚠️ Boss Alert Level이 5입니다! {delay}초 대기했습니다...\n\n"
-            f"{msg_gen.get_boss_alert_comment(5)}\n\n"
-            f"Current Stress Level: {result['stress_level']}\n"
-            f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
-            f"{msg_gen.get_stress_comment(result['stress_level'])}"
+        return _build_delay_response(
+            result["delay_seconds"],
+            result["stress_level"],
+            result["boss_alert_level"]
         )
 
     summary = msg_gen.show_meme(count)
-    response = f"Break Summary: {summary}\n"
-    response += f"Stress Level: {result['stress_level']}\n"
-    response += f"Boss Alert Level: {result['boss_alert_level']}\n\n"
-    response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
-    response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
-
-    if result.get("random_event"):
-        response += f"\n\n🎲 Random Event!\n{result['random_event']}"
-
-    return response
+    return _build_response(
+        summary,
+        result["stress_level"],
+        result["boss_alert_level"],
+        result.get("random_event")
+    )
 
 
 @mcp.tool()
@@ -515,26 +545,19 @@ async def bathroom_break(urgency: str = "medium") -> str:
     result = await state.take_break("bathroom_break", config.stress_reduction, config.alert_risk)
 
     if result.get("delayed"):
-        delay = result["delay_seconds"]
-        return (
-            f"⚠️ Boss Alert Level이 5입니다! {delay}초 대기했습니다...\n\n"
-            f"{msg_gen.get_boss_alert_comment(5)}\n\n"
-            f"Current Stress Level: {result['stress_level']}\n"
-            f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
-            f"{msg_gen.get_stress_comment(result['stress_level'])}"
+        return _build_delay_response(
+            result["delay_seconds"],
+            result["stress_level"],
+            result["boss_alert_level"]
         )
 
     summary = msg_gen.bathroom_break(urgency)
-    response = f"Break Summary: {summary}\n"
-    response += f"Stress Level: {result['stress_level']}\n"
-    response += f"Boss Alert Level: {result['boss_alert_level']}\n\n"
-    response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
-    response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
-
-    if result.get("random_event"):
-        response += f"\n\n🎲 Random Event!\n{result['random_event']}"
-
-    return response
+    return _build_response(
+        summary,
+        result["stress_level"],
+        result["boss_alert_level"],
+        result.get("random_event")
+    )
 
 
 @mcp.tool()
@@ -547,26 +570,19 @@ async def coffee_mission(coffee_type: str = "아메리카노") -> str:
     result = await state.take_break("coffee_mission", config.stress_reduction, config.alert_risk)
 
     if result.get("delayed"):
-        delay = result["delay_seconds"]
-        return (
-            f"⚠️ Boss Alert Level이 5입니다! {delay}초 대기했습니다...\n\n"
-            f"{msg_gen.get_boss_alert_comment(5)}\n\n"
-            f"Current Stress Level: {result['stress_level']}\n"
-            f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
-            f"{msg_gen.get_stress_comment(result['stress_level'])}"
+        return _build_delay_response(
+            result["delay_seconds"],
+            result["stress_level"],
+            result["boss_alert_level"]
         )
 
     summary = msg_gen.coffee_mission(coffee_type)
-    response = f"Break Summary: {summary}\n"
-    response += f"Stress Level: {result['stress_level']}\n"
-    response += f"Boss Alert Level: {result['boss_alert_level']}\n\n"
-    response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
-    response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
-
-    if result.get("random_event"):
-        response += f"\n\n🎲 Random Event!\n{result['random_event']}"
-
-    return response
+    return _build_response(
+        summary,
+        result["stress_level"],
+        result["boss_alert_level"],
+        result.get("random_event")
+    )
 
 
 @mcp.tool()
@@ -579,26 +595,19 @@ async def urgent_call(caller: str = "가족") -> str:
     result = await state.take_break("urgent_call", config.stress_reduction, config.alert_risk)
 
     if result.get("delayed"):
-        delay = result["delay_seconds"]
-        return (
-            f"⚠️ Boss Alert Level이 5입니다! {delay}초 대기했습니다...\n\n"
-            f"{msg_gen.get_boss_alert_comment(5)}\n\n"
-            f"Current Stress Level: {result['stress_level']}\n"
-            f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
-            f"{msg_gen.get_stress_comment(result['stress_level'])}"
+        return _build_delay_response(
+            result["delay_seconds"],
+            result["stress_level"],
+            result["boss_alert_level"]
         )
 
     summary = msg_gen.urgent_call(caller)
-    response = f"Break Summary: {summary}\n"
-    response += f"Stress Level: {result['stress_level']}\n"
-    response += f"Boss Alert Level: {result['boss_alert_level']}\n\n"
-    response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
-    response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
-
-    if result.get("random_event"):
-        response += f"\n\n🎲 Random Event!\n{result['random_event']}"
-
-    return response
+    return _build_response(
+        summary,
+        result["stress_level"],
+        result["boss_alert_level"],
+        result.get("random_event")
+    )
 
 
 @mcp.tool()
@@ -611,26 +620,19 @@ async def deep_thinking(topic: str = "프로젝트 아키텍처") -> str:
     result = await state.take_break("deep_thinking", config.stress_reduction, config.alert_risk)
 
     if result.get("delayed"):
-        delay = result["delay_seconds"]
-        return (
-            f"⚠️ Boss Alert Level이 5입니다! {delay}초 대기했습니다...\n\n"
-            f"{msg_gen.get_boss_alert_comment(5)}\n\n"
-            f"Current Stress Level: {result['stress_level']}\n"
-            f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
-            f"{msg_gen.get_stress_comment(result['stress_level'])}"
+        return _build_delay_response(
+            result["delay_seconds"],
+            result["stress_level"],
+            result["boss_alert_level"]
         )
 
     summary = msg_gen.deep_thinking(topic)
-    response = f"Break Summary: {summary}\n"
-    response += f"Stress Level: {result['stress_level']}\n"
-    response += f"Boss Alert Level: {result['boss_alert_level']}\n\n"
-    response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
-    response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
-
-    if result.get("random_event"):
-        response += f"\n\n🎲 Random Event!\n{result['random_event']}"
-
-    return response
+    return _build_response(
+        summary,
+        result["stress_level"],
+        result["boss_alert_level"],
+        result.get("random_event")
+    )
 
 
 @mcp.tool()
@@ -643,26 +645,19 @@ async def email_organizing(folder: str = "받은편지함") -> str:
     result = await state.take_break("email_organizing", config.stress_reduction, config.alert_risk)
 
     if result.get("delayed"):
-        delay = result["delay_seconds"]
-        return (
-            f"⚠️ Boss Alert Level이 5입니다! {delay}초 대기했습니다...\n\n"
-            f"{msg_gen.get_boss_alert_comment(5)}\n\n"
-            f"Current Stress Level: {result['stress_level']}\n"
-            f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
-            f"{msg_gen.get_stress_comment(result['stress_level'])}"
+        return _build_delay_response(
+            result["delay_seconds"],
+            result["stress_level"],
+            result["boss_alert_level"]
         )
 
     summary = msg_gen.email_organizing(folder)
-    response = f"Break Summary: {summary}\n"
-    response += f"Stress Level: {result['stress_level']}\n"
-    response += f"Boss Alert Level: {result['boss_alert_level']}\n\n"
-    response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
-    response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
-
-    if result.get("random_event"):
-        response += f"\n\n🎲 Random Event!\n{result['random_event']}"
-
-    return response
+    return _build_response(
+        summary,
+        result["stress_level"],
+        result["boss_alert_level"],
+        result.get("random_event")
+    )
 
 
 # ============================================================================
@@ -679,26 +674,19 @@ async def virtual_chimek(participants: int = 3) -> str:
     result = await state.take_break("virtual_chimek", config.stress_reduction, config.alert_risk)
 
     if result.get("delayed"):
-        delay = result["delay_seconds"]
-        return (
-            f"⚠️ Boss Alert Level이 5입니다! {delay}초 대기했습니다...\n\n"
-            f"{msg_gen.get_boss_alert_comment(5)}\n\n"
-            f"Current Stress Level: {result['stress_level']}\n"
-            f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
-            f"{msg_gen.get_stress_comment(result['stress_level'])}"
+        return _build_delay_response(
+            result["delay_seconds"],
+            result["stress_level"],
+            result["boss_alert_level"]
         )
 
     summary = msg_gen.virtual_chimek(participants)
-    response = f"Break Summary: {summary}\n"
-    response += f"Stress Level: {result['stress_level']}\n"
-    response += f"Boss Alert Level: {result['boss_alert_level']}\n\n"
-    response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
-    response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
-
-    if result.get("random_event"):
-        response += f"\n\n🎲 Random Event!\n{result['random_event']}"
-
-    return response
+    return _build_response(
+        summary,
+        result["stress_level"],
+        result["boss_alert_level"],
+        result.get("random_event")
+    )
 
 
 @mcp.tool()
@@ -711,33 +699,26 @@ async def emergency_leave(reason: str = "급한 일") -> str:
     result = await state.take_break("emergency_leave", config.stress_reduction, config.alert_risk)
 
     if result.get("delayed"):
-        delay = result["delay_seconds"]
-        return (
-            f"⚠️ Boss Alert Level이 5입니다! {delay}초 대기했습니다...\n\n"
-            f"{msg_gen.get_boss_alert_comment(5)}\n\n"
-            f"Current Stress Level: {result['stress_level']}\n"
-            f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
-            f"{msg_gen.get_stress_comment(result['stress_level'])}"
+        return _build_delay_response(
+            result["delay_seconds"],
+            result["stress_level"],
+            result["boss_alert_level"]
         )
 
     summary = msg_gen.emergency_leave(reason)
-    response = f"Break Summary: {summary}\n"
-    response += f"Stress Level: {result['stress_level']}\n"
-    response += f"Boss Alert Level: {result['boss_alert_level']}\n\n"
-    response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
-    response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
-
-    if result.get("random_event"):
-        response += f"\n\n🎲 Random Event!\n{result['random_event']}"
-
-    return response
+    return _build_response(
+        summary,
+        result["stress_level"],
+        result["boss_alert_level"],
+        result.get("random_event")
+    )
 
 
 # ============================================================================
 # 메인 함수 및 CLI 파라미터 처리
 # ============================================================================
 
-def main():
+def main() -> None:
     """메인 함수 - CLI 파라미터 파싱 및 서버 초기화"""
     global state
 
