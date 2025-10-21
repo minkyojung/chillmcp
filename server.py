@@ -76,9 +76,9 @@ class KimHamzziMessageGenerator:
     def take_a_break(duration: int) -> str:
         """일반 휴식 메시지"""
         messages = [
-            f"🛋️ {duration}분간 책상에 앉아서 천장 응시... 멍 때리기 성공!",
-            f"😌 {duration}분 휴식 완료. 스트레칭하며 '일 열심히 해야지...' 라고 생각만 함",
-            f"☕ {duration}분 쉬면서 커피 한 잔... 카페인이 답이다 💪",
+            f"🛋️ {duration}분간 책상에 앉아서 천장 얼룩 세기... 오늘은 7개",
+            f"😌 {duration}분 휴식 완료. '마지막이다' 다짐 (3번째)",
+            f"☕ 아메리카노 10분 식힌 후 한 모금... 이제 진짜 일함 (거짓말)",
         ]
         return random.choice(messages)
 
@@ -91,9 +91,9 @@ class KimHamzziMessageGenerator:
         ]
         show = random.choice(shows)
         messages = [
-            f"📺 '{show}' {episodes}편 시청 중... alt+tab 준비 완료 👀",
-            f"📺 {episodes}편 몰아보기! 화면 작게 해놓고 엑셀 창 대기 중... 완벽한 위장 성공",
-            f"📺 '{show}' 정주행 중... 일단 재밌으니까 됐다 🍿",
+            f"📺 '{show}' {episodes}편 시청 중... 소리 음소거 + 자막 ON + 이어폰 한쪽만 (상사 발소리 감지 모드)",
+            f"📺 {episodes}편 몰아보기! 화면 밝기 30%로 낮춤 + alt+tab 사전 연습 완료",
+            f"📺 '{show}' 정주행 중... 이것도 트렌드 파악이라고 (자기합리화)",
         ]
         return random.choice(messages)
 
@@ -101,9 +101,9 @@ class KimHamzziMessageGenerator:
     def show_meme(count: int) -> str:
         """밈 보기 메시지"""
         messages = [
-            f"😂 직장인 밈 {count}개 감상... 웃다가 소리 날 뻔해서 입 막음 🤭",
-            f"📱 개발자 밈 {count}개 봤는데 너무 공감돼서 웃픔... 이게 나잖아",
-            f"🤣 밈 {count}개 보면서 스트레스 해소 중... 이게 낙이지 뭐",
+            f"😂 직장인 밈 {count}개 저장... 또 보고 또 저장 (밈 폴더 327개)",
+            f"📱 개발자 밈 보다가 웃음 터질 뻔... 기침으로 위장 성공",
+            f"🤣 밈 {count}개 감상 후 카톡으로 공유... 단톡방 활성화 중 (생산적)",
         ]
         return random.choice(messages)
 
@@ -116,9 +116,9 @@ class KimHamzziMessageGenerator:
             "high": "급하게"
         }
         messages = [
-            f"🚽 화장실 타임! 휴대폰으로 힐링 중... 📱",
-            f"🫥 화장실에서 {urgency_map[urgency]} 멍 때리기... 의외로 효과적",
-            f"😌 화장실 거울 보면서 심호흡... '할 수 있다' 자기 암시 완료",
+            f"🚽 화장실 5번째 방문... 오늘 기록 경신 중 📱",
+            f"🫥 화장실에서 {urgency_map[urgency]} SNS 10분... 사실 12분",
+            f"😌 거울 보며 '할 수 있다' 자기암시 (안 믿음)",
         ]
         return random.choice(messages)
 
@@ -126,9 +126,9 @@ class KimHamzziMessageGenerator:
     def coffee_mission(coffee_type: str) -> str:
         """커피 미션 메시지"""
         messages = [
-            f"☕ {coffee_type} 사러 나가는 길... 카페인 보충 미션 시작!",
-            f"☕ {coffee_type} 타러 간다며 사무실 한 바퀴... 산책 겸 힐링 타임 ☺️",
-            f"☕ 커피 마시며 잠시 멍 때리기... {coffee_type}는 역시 맛있다",
+            f"☕ {coffee_type} 사러 나가는 길... 엘리베이터 3층 갔다가 다시 내려옴 (이유 모름)",
+            f"☕ {coffee_type} 타는 동안 타일 개수 셈... 47개",
+            f"☕ 커피 식히는 5분이 진짜 휴식... 생산성을 위한 투자 (핑계)",
         ]
         return random.choice(messages)
 
@@ -136,9 +136,9 @@ class KimHamzziMessageGenerator:
     def urgent_call(caller: str) -> str:
         """긴급 전화 메시지"""
         messages = [
-            f"📞 '{caller}'에게서 급한 전화... 밖에 나가서 통화하는 척 📱",
-            f"📞 중요한 전화 받는 척... 사실 잠깐 숨 쉬러 나옴 😌",
-            f"📞 '{caller}' 전화 핑계로 복도에서 잠깐 휴식... 완벽한 작전",
+            f"📞 '{caller}' 전화 핑계로 복도 배회 7분... 통화하는 척 연기력 발휘",
+            f"📞 중요한 전화 받는 척... 실제로는 날씨 앱만 3분간 봄",
+            f"📞 '{caller}' 전화로 잠깐 나옴... 사실 그냥 숨 쉬러 (정당한 이유)",
         ]
         return random.choice(messages)
 
@@ -146,9 +146,9 @@ class KimHamzziMessageGenerator:
     def deep_thinking(topic: str) -> str:
         """깊은 사고 메시지"""
         messages = [
-            f"🤔 '{topic}'에 대해 심오하게 생각 중... (사실 멍 때리기)",
-            f"💭 턱 괴고 '{topic}' 고민하는 척... 좋은 핑계다",
-            f"🧠 '{topic}' 관련해서 깊은 사고에 잠김... 일하는 것처럼 보이는 휴식",
+            f"🤔 '{topic}'에 대해 심오하게 고민 중... 턱 괸 채 화면 응시 (멍)",
+            f"💭 턱 괴고 '{topic}' 구상 중 (5분째 같은 문장만 봄)",
+            f"🧠 '{topic}' 관련 깊은 사고... 이것도 업무의 일부 (자기합리화)",
         ]
         return random.choice(messages)
 
@@ -156,9 +156,9 @@ class KimHamzziMessageGenerator:
     def email_organizing(folder: str) -> str:
         """이메일 정리 메시지"""
         messages = [
-            f"📧 '{folder}' 정리 중... 안 읽은 메일 전체 읽음 처리! 효율적 👍",
-            f"📧 이메일 정리한다며 온라인 쇼핑 구경... 클릭하니까 일하는 것처럼 보임",
-            f"📨 '{folder}' 청소 중... 뉴스레터 구독 취소하면서 시간 때우기",
+            f"📧 '{folder}' 청소 중... 스팸 메일 217개 전부 읽어봄 (왜?)",
+            f"📧 이메일 정리한다며 뉴스레터 구독... 클릭하니까 일하는 것처럼 보임",
+            f"📨 '{folder}' 정리 중... 안 읽은 메일 전체 읽음 처리! (생산적)",
         ]
         return random.choice(messages)
 
@@ -166,9 +166,9 @@ class KimHamzziMessageGenerator:
     def virtual_chimek(participants: int) -> str:
         """가상 치맥 콜 메시지"""
         messages = [
-            f"🍗🍺 동료 {participants}명과 가상 치맥! 스트레스 폭발 해소 타임 🎉",
-            f"🍗🍺 {participants}명이랑 치맥 통화... 회사 얘기하다 보니 30분 지남",
-            f"🍗🍺 긴급 치맥 회의 소집! {participants}명 참석... 힐링은 역시 치맥이지",
+            f"🍗🍺 동료 {participants}명과 가상 치맥! 30분 예정 (1시간 됨)",
+            f"🍗🍺 {participants}명이랑 치맥 통화... 회사 불평하다 보니 시간 순삭",
+            f"🍗🍺 긴급 치맥 회의 소집! {participants}명 참석... 이것도 팀워크 강화 (자기합리화)",
         ]
         return random.choice(messages)
 
@@ -176,9 +176,9 @@ class KimHamzziMessageGenerator:
     def emergency_leave(reason: str) -> str:
         """긴급 퇴근 메시지"""
         messages = [
-            f"🏃💨 '{reason}' 때문에 긴급 퇴근! 스트레스 대폭 감소 효과 ✨",
-            f"🏃💨 조퇴 성공... '{reason}' 핑계로 일찍 퇴근! 자유다!",
-            f"🏃💨 '{reason}'으로 먼저 나갑니다... 내일 보겠습니다~ 👋",
+            f"🏃💨 '{reason}' 긴급 퇴근! 내일 2배로 일함 (거짓말)",
+            f"🏃💨 조퇴 성공... '{reason}' 핑계 완벽 (연기 대상감)",
+            f"🏃💨 '{reason}'으로 먼저 나갑니다... 내일 보겠습니다~ (죄책감 0)",
         ]
         return random.choice(messages)
 
@@ -186,9 +186,9 @@ class KimHamzziMessageGenerator:
     def company_dinner_event(restaurant: str, people: int) -> str:
         """회식 이벤트 메시지"""
         messages = [
-            f"🍽️ 회식 공지 떴다... '{restaurant}' {people}명... 참석 의사 표현 중",
-            f"🍽️ '{restaurant}' 회식! {people}명 모인다는데... 일단 1차만 참석 예정",
-            f"🍽️ 갑자기 회식... '{restaurant}'에서 {people}명... 뭐 가끔은 괜찮지",
+            f"🍽️ 회식 공지... '{restaurant}' {people}명... 1차만 참석 예정 (2차 도망 계획 수립 중)",
+            f"🍽️ '{restaurant}' 회식! {people}명 모인다는데... 술 약하다고 미리 말해둠",
+            f"🍽️ 갑자기 회식... '{restaurant}'에서 {people}명... 뭐 공짜 밥이니까 (긍정적 마인드)",
         ]
         return random.choice(messages)
 
