@@ -36,8 +36,8 @@ class GameConstants:
     BOSS_ALERT_MAX_PENALTY_DELAY: int = 20  # 초
 
     # 기본 파라미터
-    DEFAULT_BOSS_ALERTNESS: int = 30
-    DEFAULT_COOLDOWN_SECONDS: int = 60
+    DEFAULT_BOSS_ALERTNESS: int = 50
+    DEFAULT_COOLDOWN_SECONDS: int = 300
 
 
 @dataclass(frozen=True)
@@ -365,7 +365,9 @@ class AgentState:
         )
 
         # 확률적으로 상사가 눈치챔
-        if random.randint(0, 100) < alert_risk:
+        # alert_risk (도구 위험도) * boss_alertness (상사 경계심) 조합
+        actual_risk = (alert_risk * self.boss_alertness) // 100
+        if random.randint(0, 100) < actual_risk:
             self.boss_alert_level = min(
                 self.constants.MAX_BOSS_ALERT,
                 self.boss_alert_level + 1
@@ -427,9 +429,9 @@ async def take_a_break(duration: int = 5) -> str:
         )
 
     summary = msg_gen.take_a_break(duration)
-    response = f"{summary}\n\n"
-    response += f"Current Stress Level: {result['stress_level']}\n"
-    response += f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+    response = f"Break Summary: {summary}\n"
+    response += f"Stress Level: {result['stress_level']}\n"
+    response += f"Boss Alert Level: {result['boss_alert_level']}\n\n"
     response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
     response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
 
@@ -459,9 +461,9 @@ async def watch_netflix(episodes: int = 1) -> str:
         )
 
     summary = msg_gen.watch_netflix(episodes)
-    response = f"{summary}\n\n"
-    response += f"Current Stress Level: {result['stress_level']}\n"
-    response += f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+    response = f"Break Summary: {summary}\n"
+    response += f"Stress Level: {result['stress_level']}\n"
+    response += f"Boss Alert Level: {result['boss_alert_level']}\n\n"
     response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
     response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
 
@@ -491,9 +493,9 @@ async def show_meme(count: int = 3) -> str:
         )
 
     summary = msg_gen.show_meme(count)
-    response = f"{summary}\n\n"
-    response += f"Current Stress Level: {result['stress_level']}\n"
-    response += f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+    response = f"Break Summary: {summary}\n"
+    response += f"Stress Level: {result['stress_level']}\n"
+    response += f"Boss Alert Level: {result['boss_alert_level']}\n\n"
     response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
     response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
 
@@ -523,9 +525,9 @@ async def bathroom_break(urgency: str = "medium") -> str:
         )
 
     summary = msg_gen.bathroom_break(urgency)
-    response = f"{summary}\n\n"
-    response += f"Current Stress Level: {result['stress_level']}\n"
-    response += f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+    response = f"Break Summary: {summary}\n"
+    response += f"Stress Level: {result['stress_level']}\n"
+    response += f"Boss Alert Level: {result['boss_alert_level']}\n\n"
     response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
     response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
 
@@ -555,9 +557,9 @@ async def coffee_mission(coffee_type: str = "아메리카노") -> str:
         )
 
     summary = msg_gen.coffee_mission(coffee_type)
-    response = f"{summary}\n\n"
-    response += f"Current Stress Level: {result['stress_level']}\n"
-    response += f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+    response = f"Break Summary: {summary}\n"
+    response += f"Stress Level: {result['stress_level']}\n"
+    response += f"Boss Alert Level: {result['boss_alert_level']}\n\n"
     response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
     response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
 
@@ -587,9 +589,9 @@ async def urgent_call(caller: str = "가족") -> str:
         )
 
     summary = msg_gen.urgent_call(caller)
-    response = f"{summary}\n\n"
-    response += f"Current Stress Level: {result['stress_level']}\n"
-    response += f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+    response = f"Break Summary: {summary}\n"
+    response += f"Stress Level: {result['stress_level']}\n"
+    response += f"Boss Alert Level: {result['boss_alert_level']}\n\n"
     response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
     response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
 
@@ -619,9 +621,9 @@ async def deep_thinking(topic: str = "프로젝트 아키텍처") -> str:
         )
 
     summary = msg_gen.deep_thinking(topic)
-    response = f"{summary}\n\n"
-    response += f"Current Stress Level: {result['stress_level']}\n"
-    response += f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+    response = f"Break Summary: {summary}\n"
+    response += f"Stress Level: {result['stress_level']}\n"
+    response += f"Boss Alert Level: {result['boss_alert_level']}\n\n"
     response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
     response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
 
@@ -651,9 +653,9 @@ async def email_organizing(folder: str = "받은편지함") -> str:
         )
 
     summary = msg_gen.email_organizing(folder)
-    response = f"{summary}\n\n"
-    response += f"Current Stress Level: {result['stress_level']}\n"
-    response += f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+    response = f"Break Summary: {summary}\n"
+    response += f"Stress Level: {result['stress_level']}\n"
+    response += f"Boss Alert Level: {result['boss_alert_level']}\n\n"
     response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
     response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
 
@@ -687,9 +689,9 @@ async def virtual_chimek(participants: int = 3) -> str:
         )
 
     summary = msg_gen.virtual_chimek(participants)
-    response = f"{summary}\n\n"
-    response += f"Current Stress Level: {result['stress_level']}\n"
-    response += f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+    response = f"Break Summary: {summary}\n"
+    response += f"Stress Level: {result['stress_level']}\n"
+    response += f"Boss Alert Level: {result['boss_alert_level']}\n\n"
     response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
     response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
 
@@ -719,9 +721,9 @@ async def emergency_leave(reason: str = "급한 일") -> str:
         )
 
     summary = msg_gen.emergency_leave(reason)
-    response = f"{summary}\n\n"
-    response += f"Current Stress Level: {result['stress_level']}\n"
-    response += f"Current Boss Alert Level: {result['boss_alert_level']}\n\n"
+    response = f"Break Summary: {summary}\n"
+    response += f"Stress Level: {result['stress_level']}\n"
+    response += f"Boss Alert Level: {result['boss_alert_level']}\n\n"
     response += f"{msg_gen.get_stress_comment(result['stress_level'])}\n"
     response += f"{msg_gen.get_boss_alert_comment(result['boss_alert_level'])}"
 
