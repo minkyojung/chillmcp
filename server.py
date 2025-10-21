@@ -9,8 +9,7 @@ AI 에이전트를 위한 휴식 관리 MCP 서버
 import argparse
 import asyncio
 import random
-import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict, Optional
 from dataclasses import dataclass
 
@@ -115,9 +114,10 @@ class KimHamzziMessageGenerator:
             "medium": "적당히",
             "high": "급하게"
         }
+        urgency_text = urgency_map.get(urgency, "적당히")
         messages = [
             f"🚽 화장실 5번째 방문... 오늘 기록 경신 중 📱",
-            f"🫥 화장실에서 {urgency_map[urgency]} SNS 10분... 사실 12분",
+            f"🫥 화장실에서 {urgency_text} SNS 10분... 사실 12분",
             f"😌 거울 보며 '할 수 있다' 자기암시 (안 믿음)",
         ]
         return random.choice(messages)
