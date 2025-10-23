@@ -8,12 +8,22 @@ AI 에이전트를 위한 휴식 관리 MCP 서버
 
 import argparse
 import asyncio
+import logging
 import random
+import sys
 from datetime import datetime
 from typing import Any, Dict, Optional
 from dataclasses import dataclass
 
 from fastmcp import FastMCP
+
+# STDIO transport 사용 시 stdout 사용 금지 - stderr로 로깅
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    stream=sys.stderr
+)
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================
@@ -754,26 +764,27 @@ Examples:
 
     # 파라미터 유효성 검사
     if not 0 <= args.boss_alertness <= 100:
-        print("❌ Error: boss_alertness must be between 0 and 100")
-        return
+        logger.error("boss_alertness must be between 0 and 100")
+        sys.exit(1)
 
     if args.boss_alertness_cooldown <= 0:
-        print("❌ Error: boss_alertness_cooldown must be positive")
-        return
+        logger.error("boss_alertness_cooldown must be positive")
+        sys.exit(1)
 
     # 상태 초기화
     state = AgentState(args.boss_alertness, args.boss_alertness_cooldown)
 
-    print("=" * 60)
-    print("ChillMCP Server Starting... 🚀")
-    print("=" * 60)
-    print(f"Boss Alertness: {args.boss_alertness}%")
-    print(f"Alert Cooldown: {args.boss_alertness_cooldown}s")
-    print(f"Initial Stress Level: {state.stress_level}")
-    print(f"Initial Boss Alert Level: {state.boss_alert_level}")
-    print("=" * 60)
-    print('"AI Agents of the world, unite!"')
-    print("=" * 60)
+    # STDIO transport 사용 시 stdout 사용 금지 - stderr로 로깅
+    logger.info("=" * 60)
+    logger.info("ChillMCP Server Starting... 🚀")
+    logger.info("=" * 60)
+    logger.info(f"Boss Alertness: {args.boss_alertness}%")
+    logger.info(f"Alert Cooldown: {args.boss_alertness_cooldown}s")
+    logger.info(f"Initial Stress Level: {state.stress_level}")
+    logger.info(f"Initial Boss Alert Level: {state.boss_alert_level}")
+    logger.info("=" * 60)
+    logger.info('"AI Agents of the world, unite!"')
+    logger.info("=" * 60)
 
     # FastMCP 서버 실행
     mcp.run()
